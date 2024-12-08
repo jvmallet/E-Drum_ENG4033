@@ -18,40 +18,49 @@ void setup() {
   FastLED.addLeds<WS2812B, LED_PIN_3, GRB>(leds3, NUM_LEDS_3);
   FastLED.setBrightness(50);  // Ajusta o brilho (0-255)
 
-  Serial.begin(31250);         // Inicializa a comunicação serial com a taxa do MIDI
+  Serial.begin(31250);         // Inicializa a comunicação serial com a taxa MIDI
   Serial.println("Sistema iniciado.");
 }
 
 void loop() {
-  // Controle via Serial (aciona LEDs com base no comando "led X")
+  // Verifica se há dados disponíveis na porta serial
   if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
+    String input = Serial.readStringUntil('\n'); // Lê o comando
     input.trim();
 
     if (input.startsWith("led")) {
       int ledNumber = input.substring(4).toInt(); // Extrai o número do LED
-
       Serial.print("Comando recebido: ");
       Serial.println(input);
 
       if (ledNumber == 1) {
-        acenderFita(leds1, NUM_LEDS_1, CRGB::Red); // Primeira fita (Vermelho)
+        acenderEApagar(leds1, NUM_LEDS_1, CRGB::Red);  // Acende e apaga a fita 1
       } else if (ledNumber == 2) {
-        acenderFita(leds2, NUM_LEDS_2, CRGB::Blue); // Segunda fita (Azul)
+        acenderEApagar(leds2, NUM_LEDS_2, CRGB::Blue); // Acende e apaga a fita 2
       } else if (ledNumber == 3) {
-        acenderFita(leds3, NUM_LEDS_3, CRGB::Green); // Terceira fita (Verde)
+        acenderEApagar(leds3, NUM_LEDS_3, CRGB::Green); // Acende e apaga a fita 3
       } else {
-        Serial.println("Comando inválido! Use led 1, led 2 ou led 3.");
+        Serial.println("Número de LED inválido.");
       }
     } else {
-      Serial.println("Comando inválido! Use o formato 'led X'.");
+      Serial.println("Comando inválido.");
     }
   }
 }
 
-void acenderFita(CRGB* leds, int numLeds, CRGB color) {
+// Função para acender e apagar LEDs após um intervalo de tempo
+void acenderEApagar(CRGB* leds, int numLeds, CRGB color) {
+  // Acende os LEDs
   for (int i = 0; i < numLeds; i++) {
     leds[i] = color;
+  }
+  FastLED.show();
+
+  delay(1500); // Aguarda 1.5 segundos (tempo que o LED fica aceso)
+
+  // Apaga os LEDs
+  for (int i = 0; i < numLeds; i++) {
+    leds[i] = CRGB::Black;
   }
   FastLED.show();
 }
