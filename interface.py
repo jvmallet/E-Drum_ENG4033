@@ -406,6 +406,17 @@ while run:
 
     pygame.display.flip()
 
+
+# Envia feedback de vitória ou derrota
+def send_end_game_command(winner):
+    if winner:
+        serial.write("led 100\n".encode("UTF-8"))  # Vitória
+        print("Comando enviado: led 100")
+    else:
+        serial.write("led 99\n".encode("UTF-8"))   # Derrota
+        print("Comando enviado: led 99")
+
+
 """
 file = open('saved_beats.txt', 'w')
 for i in range(len(saved_beats)):

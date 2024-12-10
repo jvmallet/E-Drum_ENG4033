@@ -1,66 +1,107 @@
 #include <FastLED.h>
 
-#define NUM_LEDS_1 13   // Número de LEDs na primeira fita
-#define NUM_LEDS_2 13   // Número de LEDs na segunda fita
-#define NUM_LEDS_3 13   // Número de LEDs na terceira fita
-#define LED_PIN_1 7     // Pino para a primeira fita
-#define LED_PIN_2 6     // Pino para a segunda fita
-#define LED_PIN_3 4     // Pino para a terceira fita
+#define NUM_LEDS_1 13 // Número de LEDs na primeira fita
+#define NUM_LEDS_2 13 // Número de LEDs na segunda fita
+#define NUM_LEDS_3 13 // Número de LEDs na terceira fita
 
-CRGB leds1[NUM_LEDS_1]; // Array para a primeira fita
-CRGB leds2[NUM_LEDS_2]; // Array para a segunda fita
-CRGB leds3[NUM_LEDS_3]; // Array para a terceira fita
+#define LED_PIN_1 7   // Pino da primeira fita
+#define LED_PIN_2 6   // Pino da segunda fita
+#define LED_PIN_3 5   // Pino da terceira fita
+
+CRGB leds1[NUM_LEDS_1]; // LEDs da primeira fita
+CRGB leds2[NUM_LEDS_2]; // LEDs da segunda fita
+CRGB leds3[NUM_LEDS_3]; // LEDs da terceira fita
+
+String input = "";
 
 void setup() {
-  // Inicializa as fitas
   FastLED.addLeds<WS2812B, LED_PIN_1, GRB>(leds1, NUM_LEDS_1);
   FastLED.addLeds<WS2812B, LED_PIN_2, GRB>(leds2, NUM_LEDS_2);
   FastLED.addLeds<WS2812B, LED_PIN_3, GRB>(leds3, NUM_LEDS_3);
-  FastLED.setBrightness(50);  // Ajusta o brilho (0-255)
-
-  Serial.begin(31250);         // Inicializa a comunicação serial com a taxa MIDI
-  Serial.println("Sistema iniciado.");
+  FastLED.setBrightness(50);
+  Serial.begin(9600);
+  Serial.println("Arduino iniciado e aguardando comandos...");
 }
 
 void loop() {
-  // Verifica se há dados disponíveis na porta serial
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n'); // Lê o comando
-    input.trim();
-
-    if (input.startsWith("led")) {
-      int ledNumber = input.substring(4).toInt(); // Extrai o número do LED
-      Serial.print("Comando recebido: ");
-      Serial.println(input);
-
-      if (ledNumber == 1) {
-        acenderEApagar(leds1, NUM_LEDS_1, CRGB::Red);  // Acende e apaga a fita 1
-      } else if (ledNumber == 2) {
-        acenderEApagar(leds2, NUM_LEDS_2, CRGB::Blue); // Acende e apaga a fita 2
-      } else if (ledNumber == 3) {
-        acenderEApagar(leds3, NUM_LEDS_3, CRGB::Green); // Acende e apaga a fita 3
-      } else {
-        Serial.println("Número de LED inválido.");
-      }
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+    if (c == '\n') {
+      processCommand(input);
+      input = "";
     } else {
-      Serial.println("Comando inválido.");
+      input += c;
     }
   }
 }
 
-// Função para acender e apagar LEDs após um intervalo de tempo
-void acenderEApagar(CRGB* leds, int numLeds, CRGB color) {
-  // Acende os LEDs
-  for (int i = 0; i < numLeds; i++) {
+void processCommand(String command) {
+  command.trim();
+  Serial.print("Comando recebido: ");
+  Serial.println(command);
+
+  if (command.startsWith("led")) {
+    int firstSpace = command.indexOf(' ');
+    int secondSpace = command.indexOf(' ', firstSpace + 1);
+
+    int ledNumber = command.substring(firstSpace + 1, secondSpace).toInt();
+    int bpm = command.substring(secondSpace + 1).toInt();
+
+    int delayTime = 60000 / bpm;
+
+    // Chama a função de acordo com o LED correspondente
+    if (ledNumber == 1) {
+      acenderEApagar(leds1, 0, NUM_LEDS_1 / 2, CRGB::Yellow, delayTime); // Hi Hat (metade 1 da fita 1)
+    } else if (ledNumber == 2) {
+      acenderEApagar(leds1, NUM_LEDS_1 / 2, NUM_LEDS_1, CRGB::Blue, delayTime); // Snare (metade 2 da fita 1)
+    } else if (ledNumber == 3) {
+      acenderEApagar(leds2, 0, NUM_LEDS_2 / 2, CRGB::Red, delayTime); // Bass Drum (metade 1 da fita 2)
+    } else if (ledNumber == 4) {
+      acenderEApagar(leds2, NUM_LEDS_2 / 2, NUM_LEDS_2, CRGB::Orange, delayTime); // Crash (metade 2 da fita 2)
+    } else if (ledNumber == 5) {
+      acenderEApagar(leds3, 0, NUM_LEDS_3 / 2, CRGB::Purple, delayTime); // Tom (metade 1 da fita 3)
+    } else if (ledNumber == 6) {
+      acenderEApagar(leds3, NUM_LEDS_3 / 2, NUM_LEDS_3, CRGB::Green, delayTime); // Ride (metade 2 da fita 3)
+    } else if (ledNumber == 99) {
+      efeitoFinal(CRGB::Red);   // Jogador perdeu
+    } else if (ledNumber == 100) {
+      efeitoFinal(CRGB::Green); // Jogador ganhou
+    } else {
+      Serial.println("Número de LED inválido.");
+    }
+  } else {
+    Serial.println("Comando inválido.");
+  }
+}
+
+void acenderEApagar(CRGB* leds, int start, int end, CRGB color, int delayTime) {
+  // Acende LEDs no intervalo especificado
+  for (int i = start; i < end; i++) {
     leds[i] = color;
   }
   FastLED.show();
 
-  delay(1500); // Aguarda 1.5 segundos (tempo que o LED fica aceso)
+  delay(delayTime);
 
-  // Apaga os LEDs
-  for (int i = 0; i < numLeds; i++) {
+  // Apaga LEDs no intervalo especificado
+  for (int i = start; i < end; i++) {
     leds[i] = CRGB::Black;
   }
   FastLED.show();
+}
+
+// Função para efeito de vitória ou derrota
+void efeitoFinal(CRGB color) {
+  for (int i = 0; i < 5; i++) { // Pisca 5 vezes
+    for (int j = 0; j < NUM_LEDS_1; j++) leds1[j] = color;
+    for (int j = 0; j < NUM_LEDS_2; j++) leds2[j] = color;
+    for (int j = 0; j < NUM_LEDS_3; j++) leds3[j] = color;
+    FastLED.show();
+    delay(500);
+    for (int j = 0; j < NUM_LEDS_1; j++) leds1[j] = CRGB::Black;
+    for (int j = 0; j < NUM_LEDS_2; j++) leds2[j] = CRGB::Black;
+    for (int j = 0; j < NUM_LEDS_3; j++) leds3[j] = CRGB::Black;
+    FastLED.show();
+    delay(500);
+  }
 }
