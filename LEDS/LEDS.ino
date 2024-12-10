@@ -1,107 +1,132 @@
 #include <FastLED.h>
 
-#define NUM_LEDS_1 13 // Número de LEDs na primeira fita
-#define NUM_LEDS_2 13 // Número de LEDs na segunda fita
-#define NUM_LEDS_3 13 // Número de LEDs na terceira fita
+#define NUM_LEDS 13
+#define LED_PIN_1 7
+#define LED_PIN_2 6
+#define LED_PIN_3 4
 
-#define LED_PIN_1 7   // Pino da primeira fita
-#define LED_PIN_2 6   // Pino da segunda fita
-#define LED_PIN_3 5   // Pino da terceira fita
+CRGB leds1[NUM_LEDS];
+CRGB leds2[NUM_LEDS];
+CRGB leds3[NUM_LEDS];
 
-CRGB leds1[NUM_LEDS_1]; // LEDs da primeira fita
-CRGB leds2[NUM_LEDS_2]; // LEDs da segunda fita
-CRGB leds3[NUM_LEDS_3]; // LEDs da terceira fita
+// Configuração dos sensores
+int sensorPins[] = {A0, A1, A2, A3};
+int limiarSensor = 80;
+unsigned long tempoInicio;
+unsigned long tempoLimite = 2000; // 2 segundos para acertar
 
-String input = "";
+// Estados do jogo
+int ledAtual = -1; // -1 significa nenhum LED aceso
+bool aguardandoResposta = false;
 
 void setup() {
-  FastLED.addLeds<WS2812B, LED_PIN_1, GRB>(leds1, NUM_LEDS_1);
-  FastLED.addLeds<WS2812B, LED_PIN_2, GRB>(leds2, NUM_LEDS_2);
-  FastLED.addLeds<WS2812B, LED_PIN_3, GRB>(leds3, NUM_LEDS_3);
+  FastLED.addLeds<WS2812B, LED_PIN_1, GRB>(leds1, NUM_LEDS);
+  FastLED.addLeds<WS2812B, LED_PIN_2, GRB>(leds2, NUM_LEDS);
+  FastLED.addLeds<WS2812B, LED_PIN_3, GRB>(leds3, NUM_LEDS);
   FastLED.setBrightness(50);
+
+  for (int i = 0; i < 4; i++) {
+    pinMode(sensorPins[i], INPUT);
+  }
+
   Serial.begin(9600);
   Serial.println("Arduino iniciado e aguardando comandos...");
 }
 
 void loop() {
-  while (Serial.available() > 0) {
-    char c = Serial.read();
-    if (c == '\n') {
-      processCommand(input);
-      input = "";
-    } else {
-      input += c;
-    }
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    processCommand(command);
+  }
+
+  if (aguardandoResposta) {
+    verificaResposta();
   }
 }
 
 void processCommand(String command) {
   command.trim();
-  Serial.print("Comando recebido: ");
-  Serial.println(command);
 
   if (command.startsWith("led")) {
-    int firstSpace = command.indexOf(' ');
-    int secondSpace = command.indexOf(' ', firstSpace + 1);
-
-    int ledNumber = command.substring(firstSpace + 1, secondSpace).toInt();
-    int bpm = command.substring(secondSpace + 1).toInt();
-
-    int delayTime = 60000 / bpm;
-
-    // Chama a função de acordo com o LED correspondente
-    if (ledNumber == 1) {
-      acenderEApagar(leds1, 0, NUM_LEDS_1 / 2, CRGB::Yellow, delayTime); // Hi Hat (metade 1 da fita 1)
-    } else if (ledNumber == 2) {
-      acenderEApagar(leds1, NUM_LEDS_1 / 2, NUM_LEDS_1, CRGB::Blue, delayTime); // Snare (metade 2 da fita 1)
-    } else if (ledNumber == 3) {
-      acenderEApagar(leds2, 0, NUM_LEDS_2 / 2, CRGB::Red, delayTime); // Bass Drum (metade 1 da fita 2)
-    } else if (ledNumber == 4) {
-      acenderEApagar(leds2, NUM_LEDS_2 / 2, NUM_LEDS_2, CRGB::Orange, delayTime); // Crash (metade 2 da fita 2)
-    } else if (ledNumber == 5) {
-      acenderEApagar(leds3, 0, NUM_LEDS_3 / 2, CRGB::Purple, delayTime); // Tom (metade 1 da fita 3)
-    } else if (ledNumber == 6) {
-      acenderEApagar(leds3, NUM_LEDS_3 / 2, NUM_LEDS_3, CRGB::Green, delayTime); // Ride (metade 2 da fita 3)
-    } else if (ledNumber == 99) {
-      efeitoFinal(CRGB::Red);   // Jogador perdeu
-    } else if (ledNumber == 100) {
-      efeitoFinal(CRGB::Green); // Jogador ganhou
-    } else {
-      Serial.println("Número de LED inválido.");
-    }
-  } else {
-    Serial.println("Comando inválido.");
+    int led = command.substring(4).toInt();
+    acenderLED(led);
+    tempoInicio = millis();
+    aguardandoResposta = true;
+    ledAtual = led;
+    Serial.println("LED aceso. Aguardando resposta...");
   }
 }
 
-void acenderEApagar(CRGB* leds, int start, int end, CRGB color, int delayTime) {
-  // Acende LEDs no intervalo especificado
+void acenderLED(int led) {
+  limparLEDs();
+
+  if (led == 1) {
+    acenderIntervalo(leds1, 0, NUM_LEDS / 2, CRGB::Yellow); // Hi Hat
+  } else if (led == 2) {
+    acenderIntervalo(leds1, NUM_LEDS / 2, NUM_LEDS, CRGB::Blue); // Snare
+  } else if (led == 3) {
+    acenderIntervalo(leds2, 0, NUM_LEDS / 2, CRGB::Red); // Bass Drum
+  } else if (led == 4) {
+    acenderIntervalo(leds2, NUM_LEDS / 2, NUM_LEDS, CRGB::Orange); // Crash
+  } else if (led == 5) {
+    acenderIntervalo(leds3, 0, NUM_LEDS / 2, CRGB::Purple); // Tom
+  } else if (led == 6) {
+    acenderIntervalo(leds3, NUM_LEDS / 2, NUM_LEDS, CRGB::Green); // Ride
+  }
+
+  FastLED.show();
+}
+
+void verificaResposta() {
+  int sensorValue = analogRead(sensorPins[ledAtual - 1]);
+  unsigned long agora = millis();
+
+  if (sensorValue > limiarSensor) {
+    feedbackAcerto();
+    aguardandoResposta = false;
+    Serial.println("ACERTO");
+  } else if (agora - tempoInicio > tempoLimite) {
+    feedbackErro();
+    aguardandoResposta = false;
+    Serial.println("ERRO");
+  }
+}
+
+void feedbackAcerto() {
+  if (ledAtual <= 2) {
+    acenderIntervalo(leds1, 0, NUM_LEDS / 2, CRGB::Green);
+  } else if (ledAtual <= 4) {
+    acenderIntervalo(leds2, NUM_LEDS / 2, NUM_LEDS, CRGB::Green);
+  } else {
+    acenderIntervalo(leds3, NUM_LEDS / 2, NUM_LEDS, CRGB::Green);
+  }
+  FastLED.show();
+  delay(500);
+  limparLEDs();
+}
+
+void feedbackErro() {
+  if (ledAtual <= 2) {
+    acenderIntervalo(leds1, 0, NUM_LEDS / 2, CRGB::Red);
+  } else if (ledAtual <= 4) {
+    acenderIntervalo(leds2, NUM_LEDS / 2, NUM_LEDS, CRGB::Red);
+  } else {
+    acenderIntervalo(leds3, NUM_LEDS / 2, NUM_LEDS, CRGB::Red);
+  }
+  FastLED.show();
+  delay(500);
+  limparLEDs();
+}
+
+void limparLEDs() {
+  fill_solid(leds1, NUM_LEDS, CRGB::Black);
+  fill_solid(leds2, NUM_LEDS, CRGB::Black);
+  fill_solid(leds3, NUM_LEDS, CRGB::Black);
+  FastLED.show();
+}
+
+void acenderIntervalo(CRGB* leds, int start, int end, CRGB color) {
   for (int i = start; i < end; i++) {
     leds[i] = color;
-  }
-  FastLED.show();
-
-  delay(delayTime);
-
-  // Apaga LEDs no intervalo especificado
-  for (int i = start; i < end; i++) {
-    leds[i] = CRGB::Black;
-  }
-  FastLED.show();
-}
-
-// Função para efeito de vitória ou derrota
-void efeitoFinal(CRGB color) {
-  for (int i = 0; i < 5; i++) { // Pisca 5 vezes
-    for (int j = 0; j < NUM_LEDS_1; j++) leds1[j] = color;
-    for (int j = 0; j < NUM_LEDS_2; j++) leds2[j] = color;
-    for (int j = 0; j < NUM_LEDS_3; j++) leds3[j] = color;
-    FastLED.show();
-    delay(500);
-    for (int j = 0; j < NUM_LEDS_1; j++) leds1[j] = CRGB::Black;
-    for (int j = 0; j < NUM_LEDS_2; j++) leds2[j] = CRGB::Black;
-    for (int j = 0; j < NUM_LEDS_3; j++) leds3[j] = CRGB::Black;
-    FastLED.show();
-    delay(500);
   }
 }
